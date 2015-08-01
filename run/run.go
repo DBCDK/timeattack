@@ -126,7 +126,7 @@ func Run(prefix *string, flood *bool, speedup *float64, rampUpSecs *int) {
 		}
 
 		if !*flood {
-			runAt := t0.Add(time.Duration((delay - tCorrection) / *speedup * 1000000000))
+			runAt := t0.Add(secsToDuration((delay - tCorrection) / *speedup))
 			sleepUntil(runAt, chanLag)
 		}
 
