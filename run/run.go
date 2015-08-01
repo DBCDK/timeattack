@@ -3,6 +3,7 @@ package run
 import (
 	"bufio"
 	"fmt"
+	"math/rand"
 	"net/http"
 	"os"
 	"strconv"
@@ -10,6 +11,24 @@ import (
 	"sync"
 	"time"
 )
+
+func secsToDuration(delay float64) time.Duration {
+	return time.Duration(delay * 1000000000)
+}
+
+func calcRampUpPercentage(tStart time.Time, rampUpSecs int) float64 {
+	tNow := time.Now()
+	rampUpDuration := time.Duration(rampUpSecs) * time.Second
+	tRampUpDone := tStart.Add(rampUpDuration)
+	rampUpLeft := tRampUpDone.Sub(tNow)
+
+	res := 1 - float64(rampUpLeft)/float64(rampUpDuration)
+	if res > 1 {
+		return 1
+	} else {
+		return res
+	}
+}
 
 func performRequest(url string) (bool, time.Duration) {
 	t0 := time.Now()
@@ -41,15 +60,15 @@ func sleepUntil(t time.Time, c chan time.Duration) {
 }
 
 func printStatusHeader() {
-	fmt.Println("    lag [ms]       sent      done   waiting        successful")
+	fmt.Println("    lag [ms]       sent      done   waiting        successful   skipped")
 }
 
-func printStatus(sent int, done int, successful int, lag time.Duration) {
+func printStatus(sent int, done int, successful int, lag time.Duration, skipped int) {
 	nanoLag := float64(lag.Nanoseconds()) / float64(1000000)
-	fmt.Printf("\r%12.3f   %8d  %8d  %8d  %8d %3.2f%%", nanoLag, sent, done, sent-done, successful, 100*float64(successful)/float64(done))
+	fmt.Printf("\r%12.3f   %8d  %8d  %8d  %8d %3.2f%%  %8d", nanoLag, sent, done, sent-done, successful, 100*float64(successful)/float64(done), skipped)
 }
 
-func Run(prefix *string, flood *bool, speedup *float64) {
+func Run(prefix *string, flood *bool, speedup *float64, rampUpSecs *int) {
 	var wg sync.WaitGroup
 
 	t0 := time.Now()
@@ -60,6 +79,7 @@ func Run(prefix *string, flood *bool, speedup *float64) {
 	chanSent := make(chan int)
 	chanDone := make(chan int)
 	chanSuccess := make(chan int)
+	chanSkipped := make(chan int)
 	chanLag := make(chan time.Duration)
 
 	printStatusHeader()
@@ -68,6 +88,7 @@ func Run(prefix *string, flood *bool, speedup *float64) {
 		sent := 0
 		done := 0
 		success := 0
+		skipped := 0
 		v := 0
 		var lag time.Duration
 
@@ -79,10 +100,12 @@ func Run(prefix *string, flood *bool, speedup *float64) {
 				done += v
 			case v = <-chanSuccess:
 				success += v
+			case v = <-chanSkipped:
+				skipped += v
 			case lag = <-chanLag:
 			}
 
-			printStatus(sent, done, success, lag)
+			printStatus(sent, done, success, lag, skipped)
 		}
 	}()
 
@@ -108,11 +131,15 @@ func Run(prefix *string, flood *bool, speedup *float64) {
 		go func() {
 			defer wg.Done()
 
-			chanSent <- 1
-			var success, _ = performRequest(url)
-			chanDone <- 1
-			if success {
-				chanSuccess <- 1
+			if calcRampUpPercentage(t0, *rampUpSecs) >= rand.Float64() {
+				chanSent <- 1
+				var success, _ = performRequest(url)
+				chanDone <- 1
+				if success {
+					chanSuccess <- 1
+				}
+			} else {
+				chanSkipped <- 1
 			}
 		}()
 	}

@@ -12,6 +12,7 @@ var (
 	prefix       = kingpin.Flag("prefix", "Scheme, host and path prefix to prepend to urls").PlaceHolder("http://example.com").Default("").String()
 	flood        = runCmd.Flag("flood", "Run requests as fast as possible, ignoring timings").Bool()
 	speedup      = runCmd.Flag("speedup", "Manipulate time between requests. Values above '1' increase the speed, while values below decreases speed.").Default("1").Float()
+	rampUp       = runCmd.Flag("ramp-up", "Increase the amount of requests let through over a number of seconds.").Default("0").Int()
 	parseCmd     = kingpin.Command("parse", "Parses input into suitable format")
 	parseSolrCmd = parseCmd.Command("solr", "Parses solr logs into suitable format")
 )
@@ -19,7 +20,7 @@ var (
 func main() {
 	switch kingpin.Parse() {
 	case runCmd.FullCommand():
-		run.Run(prefix, flood, speedup)
+		run.Run(prefix, flood, speedup, rampUp)
 	case parseSolrCmd.FullCommand():
 		parse.Solr(prefix)
 	}
