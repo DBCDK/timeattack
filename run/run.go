@@ -41,12 +41,12 @@ func sleepUntil(t time.Time, c chan time.Duration) {
 }
 
 func printStatusHeader() {
-	fmt.Println("lag [ms]       sent      done   waiting        successful")
+	fmt.Println("    lag [ms]       sent      done   waiting        successful")
 }
 
 func printStatus(sent int, done int, successful int, lag time.Duration) {
 	nanoLag := float64(lag.Nanoseconds()) / float64(1000000)
-	fmt.Printf("\r%8.3f   %8d  %8d  %8d  %8d %3.2f%%", nanoLag, sent, done, sent-done, successful, 100*float64(successful)/float64(done))
+	fmt.Printf("\r%12.3f   %8d  %8d  %8d  %8d %3.2f%%", nanoLag, sent, done, sent-done, successful, 100*float64(successful)/float64(done))
 }
 
 func Run(prefix *string, flood *bool, speedup *float64) {
