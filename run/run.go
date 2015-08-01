@@ -60,12 +60,13 @@ func sleepUntil(t time.Time, c chan time.Duration) {
 }
 
 func printStatusHeader() {
-	fmt.Println("    lag [ms]       sent      done   waiting        successful   skipped")
+	fmt.Println("runtime      lag [ms]       sent      done   waiting        successful   skipped")
 }
 
-func printStatus(sent int, done int, successful int, lag time.Duration, skipped int) {
+func printStatus(tStart time.Time, sent int, done int, successful int, lag time.Duration, skipped int) {
+	runTime := int(time.Now().Sub(tStart).Seconds())
 	nanoLag := float64(lag.Nanoseconds()) / float64(1000000)
-	fmt.Printf("\r%12.3f   %8d  %8d  %8d  %8d %3.2f%%  %8d", nanoLag, sent, done, sent-done, successful, 100*float64(successful)/float64(done), skipped)
+	fmt.Printf("\r%6ds  %12.3f   %8d  %8d  %8d  %8d %3.2f%%  %8d", runTime, nanoLag, sent, done, sent-done, successful, 100*float64(successful)/float64(done), skipped)
 }
 
 func Run(prefix *string, flood *bool, speedup *float64, rampUpSecs *int) {
@@ -105,7 +106,7 @@ func Run(prefix *string, flood *bool, speedup *float64, rampUpSecs *int) {
 			case lag = <-chanLag:
 			}
 
-			printStatus(sent, done, success, lag, skipped)
+			printStatus(t0, sent, done, success, lag, skipped)
 		}
 	}()
 
