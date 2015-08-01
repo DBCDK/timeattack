@@ -70,7 +70,7 @@ func printStatus(tStart time.Time, sent int, done int, successful int, lag time.
 	fmt.Printf("\r%6ds  %12.3f   %8d  %8d  %8d  %8d %6.2f%%  %8d", runTime, nanoLag, sent, done, sent-done, successful, 100*float64(successful)/float64(done), skipped)
 }
 
-func Run(prefix *string, flood *bool, speedup *float64, rampUpSecs *int) {
+func Run(prefix *string, flood *bool, speedup *float64, rampUpSecs *int, concurrentReqs *int) {
 	var wg sync.WaitGroup
 
 	t0 := time.Now()
@@ -78,6 +78,7 @@ func Run(prefix *string, flood *bool, speedup *float64, rampUpSecs *int) {
 
 	first := true
 
+	chanSync := make(chan int, *concurrentReqs)
 	chanSent := make(chan int)
 	chanDone := make(chan int)
 	chanSuccess := make(chan int)
@@ -100,6 +101,9 @@ func Run(prefix *string, flood *bool, speedup *float64, rampUpSecs *int) {
 				sent += v
 			case v = <-chanDone:
 				done += v
+				if *concurrentReqs > 0 {
+					<-chanSync
+				}
 			case v = <-chanSuccess:
 				success += v
 			case v = <-chanSkipped:
@@ -136,6 +140,10 @@ func Run(prefix *string, flood *bool, speedup *float64, rampUpSecs *int) {
 			defer wg.Done()
 
 			if calcRampUpPercentage(t0, *rampUpSecs) >= rand.Float64() {
+				if *concurrentReqs > 0 {
+					chanSync <- 1
+				}
+
 				chanSent <- 1
 				var success, _ = performRequest(url)
 				chanDone <- 1
