@@ -4,6 +4,9 @@ import (
 	"github.com/dbcdk/timeattack/parse"
 	"github.com/dbcdk/timeattack/run"
 	"gopkg.in/alecthomas/kingpin.v2"
+	"os"
+	"runtime"
+	"strconv"
 )
 
 var (
@@ -16,6 +19,15 @@ var (
 	parseCmd     = kingpin.Command("parse", "Parses input into suitable format")
 	parseSolrCmd = parseCmd.Command("solr", "Parses solr logs into suitable format")
 )
+
+func init() {
+	maxProcs := int64(runtime.NumCPU())
+	maxProcsEnv := os.Getenv("GOMAXPROCS")
+	if maxProcsEnv != "" {
+		maxProcs, _ = strconv.ParseInt(maxProcsEnv, 10, 0)
+	}
+	runtime.GOMAXPROCS(int(maxProcs))
+}
 
 func main() {
 	switch kingpin.Parse() {
