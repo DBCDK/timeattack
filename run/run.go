@@ -104,6 +104,8 @@ func Run(prefix *string, flood *bool, speedup *float64, rampUpSecs *int) {
 			case v = <-chanSkipped:
 				skipped += v
 			case lag = <-chanLag:
+			case <-time.After(100 * time.Millisecond):
+				// noop ensure update of runtime
 			}
 
 			printStatus(t0, sent, done, success, lag, skipped)
