@@ -42,18 +42,19 @@ func performRequest(url string) (bool, time.Duration) {
 }
 
 func sleepUntil(t time.Time, c chan time.Duration) {
+	maxSleep := time.Second
 	tDone := t.Sub(time.Now())
 	c <- -tDone
 
 	for tDone > 0 {
-		var sleepDuration time.Duration
 		if tDone < 10*time.Millisecond {
-			sleepDuration = tDone
+			time.Sleep(tDone)
+		} else if tDone > maxSleep {
+			time.Sleep(maxSleep)
 		} else {
-			sleepDuration = tDone / 2
+			time.Sleep(tDone / 2)
 		}
 
-		time.Sleep(sleepDuration)
 		tDone = t.Sub(time.Now())
 		c <- -tDone
 	}
