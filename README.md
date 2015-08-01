@@ -37,6 +37,8 @@ Timestamps are parsed as floats with "seconds" as unit. The value of the first t
 
 ``--flood`` disables the delay between requests. Use with care.
 
+``--ramp-up=N`` ramps up trafic from 0% to 100% during a period of *n* seconds.
+
 
 ## Build-instructions
 
