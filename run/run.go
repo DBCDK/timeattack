@@ -4,71 +4,12 @@ import (
 	"bufio"
 	"fmt"
 	"math/rand"
-	"net/http"
 	"os"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 )
-
-func secsToDuration(delay float64) time.Duration {
-	return time.Duration(delay * 1000000000)
-}
-
-func calcRampUpPercentage(tStart time.Time, rampUpSecs int) float64 {
-	tNow := time.Now()
-	rampUpDuration := time.Duration(rampUpSecs) * time.Second
-	tRampUpDone := tStart.Add(rampUpDuration)
-	rampUpLeft := tRampUpDone.Sub(tNow)
-
-	res := 1 - float64(rampUpLeft)/float64(rampUpDuration)
-	if res > 1 {
-		return 1
-	} else {
-		return res
-	}
-}
-
-func performRequest(url string) (bool, time.Duration) {
-	t0 := time.Now()
-	res, err := http.Get(url)
-	t1 := time.Now()
-	if err == nil {
-		res.Body.Close()
-	}
-
-	return err == nil && res.StatusCode == 200, t1.Sub(t0)
-}
-
-func sleepUntil(t time.Time, c chan time.Duration) {
-	maxSleep := time.Second
-	tDone := t.Sub(time.Now())
-	c <- -tDone
-
-	for tDone > 0 {
-		if tDone < 10*time.Millisecond {
-			time.Sleep(tDone)
-		} else if tDone > maxSleep {
-			time.Sleep(maxSleep)
-		} else {
-			time.Sleep(tDone / 2)
-		}
-
-		tDone = t.Sub(time.Now())
-		c <- -tDone
-	}
-}
-
-func printStatusHeader() {
-	fmt.Println("runtime      lag [ms]       sent      done   waiting        successful   skipped")
-}
-
-func printStatus(tStart time.Time, sent int, done int, successful int, lag time.Duration, skipped int) {
-	runTime := int(time.Now().Sub(tStart).Seconds())
-	nanoLag := float64(lag.Nanoseconds()) / float64(1000000)
-	fmt.Printf("\r%6ds  %12.3f   %8d  %8d  %8d  %8d %6.2f%%  %8d", runTime, nanoLag, sent, done, sent-done, successful, 100*float64(successful)/float64(done), skipped)
-}
 
 func Run(prefix *string, flood *bool, speedup *float64, rampUpSecs *int, concurrentReqs *int, requestLimit *int) {
 	var wg sync.WaitGroup
