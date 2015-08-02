@@ -73,7 +73,6 @@ func printStatus(tStart time.Time, sent int, done int, successful int, lag time.
 func Run(prefix *string, flood *bool, speedup *float64, rampUpSecs *int, concurrentReqs *int, requestLimit *int) {
 	var wg sync.WaitGroup
 	defer fmt.Println()
-	defer fmt.Println()
 	defer wg.Wait()
 
 	t0 := time.Now()
