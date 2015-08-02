@@ -22,10 +22,9 @@ func calcRampUpPercentage(tStart time.Time, rampUpSecs int) float64 {
 	}
 }
 
-func sleepUntil(t time.Time, c chan time.Duration) {
+func sleepUntil(t time.Time) {
 	maxSleep := time.Second
 	tDone := t.Sub(time.Now())
-	c <- -tDone
 
 	for tDone > 0 {
 		if tDone < 10*time.Millisecond {
@@ -37,6 +36,5 @@ func sleepUntil(t time.Time, c chan time.Duration) {
 		}
 
 		tDone = t.Sub(time.Now())
-		c <- -tDone
 	}
 }

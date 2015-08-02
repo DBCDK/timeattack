@@ -11,6 +11,11 @@ import (
 	"time"
 )
 
+type Request struct {
+	runAt time.Time
+	url   string
+}
+
 func Run(prefix *string, flood *bool, speedup *float64, rampUpSecs *int, concurrentReqs *int, requestLimit *int) {
 	var wg sync.WaitGroup
 	defer fmt.Println()
@@ -24,11 +29,14 @@ func Run(prefix *string, flood *bool, speedup *float64, rampUpSecs *int, concurr
 
 	chanSync := make(chan int, *concurrentReqs)
 	chanLimit := make(chan int, *requestLimit)
-	chanSent := make(chan string)
-	chanDone := make(chan string)
-	chanSuccess := make(chan string)
-	chanSkipped := make(chan string)
+	chanSent := make(chan Request)
+	chanDone := make(chan Request)
+	chanSuccess := make(chan Request)
+	chanSkipped := make(chan Request)
 	chanLag := make(chan time.Duration)
+
+	pendingRequests := make(chan Request, 100)
+	requestValve := make(chan int, 100)
 
 	printStatusHeader()
 
@@ -61,6 +69,49 @@ func Run(prefix *string, flood *bool, speedup *float64, rampUpSecs *int, concurr
 		}
 	}()
 
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for {
+			request, more := <-pendingRequests
+			if more {
+				if !*flood {
+					<-requestValve
+				}
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+
+					if calcRampUpPercentage(t0, *rampUpSecs) >= rand.Float64() {
+						if *requestLimit > 0 {
+							select {
+							case chanLimit <- 1:
+							default:
+								terminate = true
+								return
+							}
+						}
+
+						if *concurrentReqs > 0 {
+							chanSync <- 1
+						}
+						chanSent <- request
+						chanLag <- -request.runAt.Sub(time.Now())
+						var success, _ = performRequest(request.url)
+						chanDone <- request
+						if success {
+							chanSuccess <- request
+						}
+					} else {
+						chanSkipped <- request
+					}
+				}()
+			} else {
+				return
+			}
+		}
+	}()
+
 	scanner := bufio.NewScanner(os.Stdin)
 	for !terminate && scanner.Scan() {
 		line := scanner.Text()
@@ -68,6 +119,7 @@ func Run(prefix *string, flood *bool, speedup *float64, rampUpSecs *int, concurr
 		lineParts := strings.SplitN(line, " ", 2)
 		delay, _ := strconv.ParseFloat(lineParts[0], 64)
 		url := *prefix + lineParts[1]
+		var runAt time.Time
 
 		if first {
 			tCorrection = delay
@@ -75,36 +127,15 @@ func Run(prefix *string, flood *bool, speedup *float64, rampUpSecs *int, concurr
 		}
 
 		if !*flood {
-			runAt := t0.Add(secsToDuration((delay - tCorrection) / *speedup))
-			sleepUntil(runAt, chanLag)
+			runAt = t0.Add(secsToDuration((delay - tCorrection) / *speedup))
+			sleepUntil(runAt)
+			requestValve <- 1
+		} else {
+			runAt = time.Now()
 		}
 
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-
-			if calcRampUpPercentage(t0, *rampUpSecs) >= rand.Float64() {
-				if *requestLimit > 0 {
-					select {
-					case chanLimit <- 1:
-					default:
-						terminate = true
-						return
-					}
-				}
-
-				if *concurrentReqs > 0 {
-					chanSync <- 1
-				}
-				chanSent <- url
-				var success, _ = performRequest(url)
-				chanDone <- url
-				if success {
-					chanSuccess <- url
-				}
-			} else {
-				chanSkipped <- url
-			}
-		}()
+		pendingRequests <- Request{runAt, url}
 	}
+
+	close(pendingRequests)
 }
