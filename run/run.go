@@ -70,15 +70,20 @@ func printStatus(tStart time.Time, sent int, done int, successful int, lag time.
 	fmt.Printf("\r%6ds  %12.3f   %8d  %8d  %8d  %8d %6.2f%%  %8d", runTime, nanoLag, sent, done, sent-done, successful, 100*float64(successful)/float64(done), skipped)
 }
 
-func Run(prefix *string, flood *bool, speedup *float64, rampUpSecs *int, concurrentReqs *int) {
+func Run(prefix *string, flood *bool, speedup *float64, rampUpSecs *int, concurrentReqs *int, requestLimit *int) {
 	var wg sync.WaitGroup
+	defer fmt.Println()
+	defer fmt.Println()
+	defer wg.Wait()
 
 	t0 := time.Now()
 	var tCorrection float64
 
+	terminate := false
 	first := true
 
 	chanSync := make(chan int, *concurrentReqs)
+	chanLimit := make(chan int, *requestLimit)
 	chanSent := make(chan int)
 	chanDone := make(chan int)
 	chanSuccess := make(chan int)
@@ -118,7 +123,7 @@ func Run(prefix *string, flood *bool, speedup *float64, rampUpSecs *int, concurr
 	}()
 
 	scanner := bufio.NewScanner(os.Stdin)
-	for scanner.Scan() {
+	for !terminate && scanner.Scan() {
 		line := scanner.Text()
 
 		lineParts := strings.SplitN(line, " ", 2)
@@ -140,10 +145,18 @@ func Run(prefix *string, flood *bool, speedup *float64, rampUpSecs *int, concurr
 			defer wg.Done()
 
 			if calcRampUpPercentage(t0, *rampUpSecs) >= rand.Float64() {
+				if *requestLimit > 0 {
+					select {
+					case chanLimit <- 1:
+					case <-time.After(time.Second):
+						terminate = true
+						return
+					}
+				}
+
 				if *concurrentReqs > 0 {
 					chanSync <- 1
 				}
-
 				chanSent <- 1
 				var success, _ = performRequest(url)
 				chanDone <- 1
@@ -155,7 +168,4 @@ func Run(prefix *string, flood *bool, speedup *float64, rampUpSecs *int, concurr
 			}
 		}()
 	}
-
-	wg.Wait()
-	fmt.Println()
 }
