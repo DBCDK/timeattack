@@ -84,10 +84,10 @@ func Run(prefix *string, flood *bool, speedup *float64, rampUpSecs *int, concurr
 
 	chanSync := make(chan int, *concurrentReqs)
 	chanLimit := make(chan int, *requestLimit)
-	chanSent := make(chan int)
-	chanDone := make(chan int)
-	chanSuccess := make(chan int)
-	chanSkipped := make(chan int)
+	chanSent := make(chan string)
+	chanDone := make(chan string)
+	chanSuccess := make(chan string)
+	chanSkipped := make(chan string)
 	chanLag := make(chan time.Duration)
 
 	printStatusHeader()
@@ -97,22 +97,21 @@ func Run(prefix *string, flood *bool, speedup *float64, rampUpSecs *int, concurr
 		done := 0
 		success := 0
 		skipped := 0
-		v := 0
 		var lag time.Duration
 
 		for {
 			select {
-			case v = <-chanSent:
-				sent += v
-			case v = <-chanDone:
-				done += v
+			case _ = <-chanSent:
+				sent += 1
+			case _ = <-chanDone:
+				done += 1
 				if *concurrentReqs > 0 {
 					<-chanSync
 				}
-			case v = <-chanSuccess:
-				success += v
-			case v = <-chanSkipped:
-				skipped += v
+			case _ = <-chanSuccess:
+				success += 1
+			case _ = <-chanSkipped:
+				skipped += 1
 			case lag = <-chanLag:
 			case <-time.After(100 * time.Millisecond):
 				// noop ensure update of runtime
@@ -157,14 +156,14 @@ func Run(prefix *string, flood *bool, speedup *float64, rampUpSecs *int, concurr
 				if *concurrentReqs > 0 {
 					chanSync <- 1
 				}
-				chanSent <- 1
+				chanSent <- url
 				var success, _ = performRequest(url)
-				chanDone <- 1
+				chanDone <- url
 				if success {
-					chanSuccess <- 1
+					chanSuccess <- url
 				}
 			} else {
-				chanSkipped <- 1
+				chanSkipped <- url
 			}
 		}()
 	}
