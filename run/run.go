@@ -148,7 +148,7 @@ func Run(prefix *string, flood *bool, speedup *float64, rampUpSecs *int, concurr
 				if *requestLimit > 0 {
 					select {
 					case chanLimit <- 1:
-					case <-time.After(time.Second):
+					default:
 						terminate = true
 						return
 					}
