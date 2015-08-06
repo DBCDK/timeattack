@@ -29,28 +29,43 @@ Timestamps are parsed as floats with "seconds" as unit. The value of the first t
 
 ## Usage
 
- Input contains complete urls: ``$ timeattack run < urls``
- 
- Input is missing part of the urls: ``$ timeattack run --prefix="http://google.com" < urls``
+```
+$ timeattack --help-long
+usage: timeattack [<flags>] <command> [<args> ...]
 
-``--speedup`` can be used to change the pace of the test. A value of ``2`` will cut the time between requests in half, while a value of ``0.5`` will double the time between requests. Arbitrary positive values can be chosen.
+Flags:
+  --help           Show help (also see --help-long and --help-man).
+  --prefix=http://example.com  
+                   String to prepend to urls.
+  --ramp-up=0      Increase the amount of requests let through over a number of seconds.
+  --concurrency=0  Allowed concurrent requests. 0 is unlimited.
+  --limit=0        Maximum number of requests that will be sent. 0 is unlimited.
 
-``--flood`` disables the delay between requests. Use with care.
+Commands:
+  help [<command>...]
+    Show help.
 
-``--ramp-up=N`` ramps up trafic from 0% to 100% during a period of *n* seconds.
 
+  run timed [<flags>]
+    Schedule requests based on timestamps.
+
+    --speedup=1  Change replay speed; 1 is 100%.
+
+  run flood
+    Ignore timestamps (send requests as fast as possible).
+
+
+  run ticker [<flags>]
+    Schedule requests with a certain frequency.
+
+    --freq=1  Ticker frequency [1/s].
+
+  parse solr
+    Parses solr logs into suitable format.
+```
 
 ## Build-instructions
 
  1. install go
  2. run ``go build`` in the project root
 
-
-## Why?
-
-Once in a while we swap Solr-servers in and out of production. This utility was written to make it easy to ``tail -f`` a logfile on one server and forward the requests to a new server, thus testing how the new server would perform under the current load.
-
-
-## Here be dragons
-
-This is my first project written in Go. Pullrequests appreciated, but please don't learn from this code.
