@@ -1,17 +1,28 @@
 package run
 
 import (
+	"io/ioutil"
 	"net/http"
-	"time"
 )
 
-func performRequest(url string) (bool, time.Duration) {
-	t0 := time.Now()
-	res, err := http.Get(url)
-	t1 := time.Now()
-	if err == nil {
-		res.Body.Close()
-	}
+func performRequest(url string) bool {
+	res, errGet := http.Get(url)
 
-	return err == nil && res.StatusCode == 200, t1.Sub(t0)
+	if errGet != nil {
+		// log error
+		return false
+	} else {
+		_, errRead := ioutil.ReadAll(res.Body)
+		if errRead == nil {
+			res.Body.Close()
+
+			if res.StatusCode != 200 {
+				// log error
+			}
+		} else {
+			// log error
+		}
+
+		return errRead == nil && res.StatusCode == 200
+	}
 }

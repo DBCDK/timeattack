@@ -11,13 +11,16 @@ import (
 
 var (
 	app          = kingpin.New("timeattack", "Replays http requests").Version("1.0")
-	runCmd       = kingpin.Command("run", "Start replaying requests")
+	runCmd       = kingpin.Command("run", "Start replaying requests.")
+	floodCmd     = runCmd.Command("flood", "Start replaying requests")
+	timedCmd     = runCmd.Command("timed", "Start replaying requests")
+	tickerCmd    = runCmd.Command("ticker", "Start replaying requests")
+	tickerFreq   = tickerCmd.Flag("freq", "Ticker frequency [1/s]").Default("1").Float()
 	prefix       = kingpin.Flag("prefix", "Scheme, host and path prefix to prepend to urls").PlaceHolder("http://example.com").Default("").String()
-	flood        = runCmd.Flag("flood", "Run requests as fast as possible, ignoring timings").Bool()
-	speedup      = runCmd.Flag("speedup", "Manipulate time between requests. Values above '1' increase the speed, while values below decreases speed.").Default("1").Float()
-	rampUp       = runCmd.Flag("ramp-up", "Increase the amount of requests let through over a number of seconds.").Default("0").Int()
-	concurrency  = runCmd.Flag("concurrency", "Allowed concurrent requests. 0 is unlimited.").Default("0").Int()
-	limit        = runCmd.Flag("limit", "Maximum number of requests that will be sent. 0 is unlimited.").Default("0").Int()
+	speedup      = timedCmd.Flag("speedup", "Change replay speed; 1 is 100%.").Default("1").Float()
+	rampUp       = kingpin.Flag("ramp-up", "Increase the amount of requests let through over a number of seconds.").Default("0").Int()
+	concurrency  = kingpin.Flag("concurrency", "Allowed concurrent requests. 0 is unlimited.").Default("0").Int()
+	limit        = kingpin.Flag("limit", "Maximum number of requests that will be sent. 0 is unlimited.").Default("0").Int()
 	parseCmd     = kingpin.Command("parse", "Parses input into suitable format")
 	parseSolrCmd = parseCmd.Command("solr", "Parses solr logs into suitable format")
 )
@@ -33,8 +36,12 @@ func init() {
 
 func main() {
 	switch kingpin.Parse() {
-	case runCmd.FullCommand():
-		run.Run(prefix, flood, speedup, rampUp, concurrency, limit)
+	case timedCmd.FullCommand():
+		run.Run(run.Timed{*speedup}, prefix, rampUp, concurrency, limit)
+	case floodCmd.FullCommand():
+		run.Run(run.Flood{}, prefix, rampUp, concurrency, limit)
+	case tickerCmd.FullCommand():
+		run.Run(run.Ticker{*tickerFreq}, prefix, rampUp, concurrency, limit)
 	case parseSolrCmd.FullCommand():
 		parse.Solr(prefix)
 	}

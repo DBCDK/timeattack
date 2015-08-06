@@ -11,12 +11,7 @@ import (
 	"time"
 )
 
-type Request struct {
-	runAt time.Time
-	url   string
-}
-
-func Run(prefix *string, flood *bool, speedup *float64, rampUpSecs *int, concurrentReqs *int, requestLimit *int) {
+func Run(scheduler Scheduler, prefix *string, rampUpSecs *int, concurrentReqs *int, requestLimit *int) {
 	var wg sync.WaitGroup
 	defer fmt.Println()
 	defer wg.Wait()
@@ -36,11 +31,15 @@ func Run(prefix *string, flood *bool, speedup *float64, rampUpSecs *int, concurr
 	chanLag := make(chan time.Duration)
 
 	pendingRequests := make(chan Request, 100)
-	requestValve := make(chan int, 100)
+
+	schedulerInput := make(chan Request)
+	defer close(schedulerInput)
+	go scheduler.Run(schedulerInput, pendingRequests)
 
 	printStatusHeader()
 
 	go func() {
+		ticks := time.Tick(100 * time.Millisecond)
 		sent := 0
 		done := 0
 		success := 0
@@ -61,7 +60,7 @@ func Run(prefix *string, flood *bool, speedup *float64, rampUpSecs *int, concurr
 			case _ = <-chanSkipped:
 				skipped += 1
 			case lag = <-chanLag:
-			case <-time.After(100 * time.Millisecond):
+			case <-ticks:
 				// noop ensure update of runtime
 			}
 
@@ -75,9 +74,6 @@ func Run(prefix *string, flood *bool, speedup *float64, rampUpSecs *int, concurr
 		for {
 			request, more := <-pendingRequests
 			if more {
-				if !*flood {
-					<-requestValve
-				}
 				wg.Add(1)
 				go func() {
 					defer wg.Done()
@@ -96,8 +92,8 @@ func Run(prefix *string, flood *bool, speedup *float64, rampUpSecs *int, concurr
 							chanSync <- 1
 						}
 						chanSent <- request
-						chanLag <- -request.runAt.Sub(time.Now())
-						var success, _ = performRequest(request.url)
+						chanLag <- -request.tStart.Add(secsToDuration(request.delay)).Sub(time.Now())
+						var success = performRequest(request.url)
 						chanDone <- request
 						if success {
 							chanSuccess <- request
@@ -118,24 +114,14 @@ func Run(prefix *string, flood *bool, speedup *float64, rampUpSecs *int, concurr
 
 		lineParts := strings.SplitN(line, " ", 2)
 		delay, _ := strconv.ParseFloat(lineParts[0], 64)
-		url := *prefix + lineParts[1]
-		var runAt time.Time
 
 		if first {
 			tCorrection = delay
 			first = false
 		}
 
-		if !*flood {
-			runAt = t0.Add(secsToDuration((delay - tCorrection) / *speedup))
-			sleepUntil(runAt)
-			requestValve <- 1
-		} else {
-			runAt = time.Now()
-		}
+		request := Request{t0, delay - tCorrection, *prefix + lineParts[1]}
 
-		pendingRequests <- Request{runAt, url}
+		schedulerInput <- request
 	}
-
-	close(pendingRequests)
 }

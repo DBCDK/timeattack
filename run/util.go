@@ -4,6 +4,12 @@ import (
 	"time"
 )
 
+type Request struct {
+	tStart time.Time
+	delay  float64
+	url    string
+}
+
 func secsToDuration(delay float64) time.Duration {
 	return time.Duration(delay * 1000000000)
 }
