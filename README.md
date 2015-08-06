@@ -35,7 +35,7 @@ usage: timeattack [<flags>] <command> [<args> ...]
 
 Flags:
   --help           Show help (also see --help-long and --help-man).
-  --prefix=http://example.com  
+  --prefix=http://example.com
                    String to prepend to urls.
   --ramp-up=0      Increase the amount of requests let through over a number of seconds.
   --concurrency=0  Allowed concurrent requests. 0 is unlimited.
