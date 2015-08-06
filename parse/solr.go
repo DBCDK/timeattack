@@ -3,6 +3,7 @@ package parse
 import (
 	"bufio"
 	"fmt"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -17,8 +18,21 @@ func Solr(prefix *string) {
 		isSelect := false
 		var query string
 		parts := strings.Split(line, " ")
-		timeEnd := strings.Index(line, ",")
-		t, _ := time.Parse(timeLayout, line[:timeEnd])
+		splitByComma := strings.Split(line, ",")
+
+		if !(len(splitByComma) > 2) {
+			continue
+		}
+
+		if !(splitByComma[1] == "INFO") {
+			continue
+		}
+
+		t, tErr := time.Parse(timeLayout, splitByComma[0])
+
+		if tErr != nil {
+			continue
+		}
 
 		for _, part := range parts {
 			if part == "path=/select" {
@@ -33,7 +47,12 @@ func Solr(prefix *string) {
 		}
 
 		if isSelect {
-			fmt.Printf("%f %s", float64(t.UnixNano())/1000000000, *prefix+"/select?"+query)
+			resultingUrl := *prefix + "/select?" + query
+			_, err := url.Parse(resultingUrl)
+			if err != nil {
+				continue
+			}
+			fmt.Printf("%f %s", float64(t.UnixNano())/1000000000, resultingUrl)
 			fmt.Println()
 		}
 	}
